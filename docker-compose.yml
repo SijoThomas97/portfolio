@@ -1,0 +1,25 @@
+# Local/self-hosted run of the hybrid (server) build with a working
+# contact API. See docs/DEPLOYMENT.md. Not used by the GitHub Pages
+# deployment (static build, no server, no Docker involved).
+#
+# Usage:
+#   cp .env.example .env   # fill in RESEND_API_KEY/CONTACT_TO_EMAIL or SMTP_*
+#   docker compose up --build
+
+services:
+  portfolio:
+    build: .
+    ports:
+      - "4321:4321"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=4321
+      - RESEND_API_KEY=${RESEND_API_KEY:-}
+      - CONTACT_TO_EMAIL=${CONTACT_TO_EMAIL:-}
+      - CONTACT_FROM_EMAIL=${CONTACT_FROM_EMAIL:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_SECURE=${SMTP_SECURE:-}
+    restart: unless-stopped
