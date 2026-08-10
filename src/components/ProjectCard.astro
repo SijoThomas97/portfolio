@@ -18,6 +18,7 @@ const tagData = tags.map((t) => t.toLowerCase()).join(',');
 
 <article
   data-project
+  data-id={id}
   data-tags={tagData}
   class="group relative bg-surface-light dark:bg-surface rounded-xl border border-border-light dark:border-border overflow-hidden transition-transform transition-shadow duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/10 dark:hover:shadow-black/30 focus-within:ring-2 focus-within:ring-accent"
 >

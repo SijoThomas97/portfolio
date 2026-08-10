@@ -1,0 +1,204 @@
+---
+/**
+ * Client-side search + tag filtering island for the /projects and /blog
+ * listing pages.
+ *
+ * Design goals (see CLAUDE.md "Zero JS by default"):
+ * - The listing pages themselves are fully server-rendered and readable
+ *   with JS off — every project/post card is present in the initial
+ *   HTML, tags included. No JS, no search: just a full list.
+ * - This island progressively enhances that markup. On load it does ONE
+ *   fetch of the build-time `/search-index.json` (prerendered — see
+ *   src/pages/search-index.json.ts, generated from the same content
+ *   collections at build time) to get richer matchable text (tech
+ *   stack / reading time) than what's rendered in the DOM, then shows or
+ *   hides the existing server-rendered `[data-project]` / `[data-post]`
+ *   cards based on query + tag match. No server round-trip per
+ *   keystroke, no third-party search service, no framework — one small
+ *   inline `<script>`.
+ * - If the fetch fails (offline, static asset missing, etc.) the tag
+ *   filter buttons still work against the DOM's own `data-tags`
+ *   attribute, and the text search box just falls back to matching each
+ *   card's visible text content. Nothing breaks, it only degrades.
+ * - Scoped to a single `type` (`project` or `blog`) so each listing page
+ *   only filters its own cards even though the index contains both.
+ */
+import { withBase } from '../utils/links';
+
+interface Props {
+  type: 'project' | 'blog';
+  tags: string[];
+  /** id applied to the results-count live region, must be unique per page */
+  resultsId?: string;
+}
+
+const { type, tags, resultsId = 'search-results-count' } = Astro.props;
+
+const label = type === 'project' ? 'projects' : 'posts';
+const searchIndexUrl = withBase('/search-index.json');
+---
+
+<div class="search-island mb-10" data-search-type={type}>
+  <div class="relative">
+    <label for={`${type}-search-input`} class="sr-only">Search {label} by keyword</label>
+    <input
+      type="search"
+      id={`${type}-search-input`}
+      class="search-input w-full px-4 py-3 rounded-lg bg-surface-light dark:bg-surface border border-border-light dark:border-border text-text-primary-light dark:text-text-primary placeholder-text-secondary-light dark:placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-colors duration-200"
+      placeholder={`Search ${label} by keyword…`}
+      autocomplete="off"
+      data-search-input
+    />
+  </div>
+
+  <div role="group" aria-label={`Filter ${label} by tag`} class="mt-4 flex flex-wrap gap-2">
+    <button
+      type="button"
+      data-filter="all"
+      aria-pressed="true"
+      class="filter-btn px-3 py-1 rounded-full text-sm font-mono border border-accent-light dark:border-accent text-accent-light dark:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+    >
+      All
+    </button>
+    {
+      tags.map((tag) => (
+        <button
+          type="button"
+          data-filter={tag.toLowerCase()}
+          aria-pressed="false"
+          class="filter-btn px-3 py-1 rounded-full text-sm font-mono border border-border-light dark:border-border text-text-secondary-light dark:text-text-secondary hover:border-accent-light dark:hover:border-accent hover:text-accent-light dark:hover:text-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+        >
+          {tag}
+        </button>
+      ))
+    }
+  </div>
+
+  <p
+    id={resultsId}
+    role="status"
+    aria-live="polite"
+    class="mt-4 text-sm font-mono text-text-secondary-light dark:text-text-secondary"
+    data-results-count
+  >
+  </p>
+  <p
+    class="mt-2 text-sm text-text-secondary-light dark:text-text-secondary hidden"
+    data-no-results
+  >
+    No {label} match your search. Try a different keyword or tag.
+  </p>
+</div>
+
+<script define:vars={{ type, resultsId, searchIndexUrl }}>
+  (function () {
+    // This script tag is rendered inline, above the server-rendered
+    // project/post cards it filters (the island sits at the top of the
+    // page, the card grid further down). Deferring to DOMContentLoaded
+    // guarantees the cards already exist in the DOM by the time we
+    // query for them, regardless of where the island happens to sit in
+    // the page markup.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+
+    function init() {
+    const island = document.querySelector(`.search-island[data-search-type="${type}"]`);
+    if (!island) return;
+
+    const input = island.querySelector('[data-search-input]');
+    const buttons = island.querySelectorAll('.filter-btn');
+    const resultsEl = document.getElementById(resultsId);
+    const noResultsEl = island.querySelector('[data-no-results]');
+    // Cards live outside the island, in the page's own server-rendered
+    // markup — [data-project] for /projects, [data-post] for /blog.
+    const cardSelector = type === 'project' ? '[data-project]' : '[data-post]';
+    const cards = Array.from(document.querySelectorAll(cardSelector));
+    if (!cards.length) return;
+
+    const ACTIVE = ['border-accent-light', 'dark:border-accent', 'text-accent-light', 'dark:text-accent'];
+    const INACTIVE = ['border-border-light', 'dark:border-border', 'text-text-secondary-light', 'dark:text-text-secondary'];
+
+    // Map each rendered card to its extra searchable text from the JSON
+    // index (tech stack / reading time), keyed by the card's data-id.
+    // Populated asynchronously; search works on DOM text alone until then.
+    const extraText = new Map();
+
+    function setPressed(btn, pressed) {
+      btn.setAttribute('aria-pressed', String(pressed));
+      const add = pressed ? ACTIVE : INACTIVE;
+      const remove = pressed ? INACTIVE : ACTIVE;
+      add.forEach((c) => btn.classList.add(c));
+      remove.forEach((c) => btn.classList.remove(c));
+    }
+
+    function cardHaystack(card) {
+      const id = card.getAttribute('data-id') || '';
+      const extra = extraText.get(id) || '';
+      return `${card.textContent || ''} ${extra}`.toLowerCase();
+    }
+
+    function cardMatchesTag(card, tag) {
+      if (tag === 'all') return true;
+      const tags = (card.getAttribute('data-tags') || '').split(',');
+      return tags.includes(tag);
+    }
+
+    let activeTag = 'all';
+    let query = '';
+
+    function applyFilters() {
+      const q = query.trim().toLowerCase();
+      let visible = 0;
+      cards.forEach((card) => {
+        const match = (!q || cardHaystack(card).includes(q)) && cardMatchesTag(card, activeTag);
+        card.toggleAttribute('hidden', !match);
+        if (match) visible += 1;
+      });
+      if (resultsEl) {
+        const noun = type === 'project' ? 'project' : 'post';
+        resultsEl.textContent = `${visible} ${noun}${visible === 1 ? '' : 's'} found`;
+      }
+      if (noResultsEl) {
+        noResultsEl.classList.toggle('hidden', visible !== 0);
+      }
+    }
+
+    if (input instanceof HTMLInputElement) {
+      input.addEventListener('input', () => {
+        query = input.value;
+        applyFilters();
+      });
+    }
+
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeTag = btn.getAttribute('data-filter') || 'all';
+        buttons.forEach((b) => setPressed(b, b === btn));
+        applyFilters();
+      });
+    });
+
+    // Enrich search text from the build-time JSON index once, best-effort.
+    fetch(searchIndexUrl)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((entries) => {
+        if (!Array.isArray(entries)) return;
+        for (const entry of entries) {
+          if (entry && entry.type === type && typeof entry.id === 'string') {
+            extraText.set(entry.id, [entry.meta, entry.description].filter(Boolean).join(' '));
+          }
+        }
+        applyFilters();
+      })
+      .catch(() => {
+        // Offline or search-index.json unavailable — DOM-only search still works.
+      });
+
+    // Initial count announcement (all visible on load).
+    applyFilters();
+    }
+  })();
+</script>
