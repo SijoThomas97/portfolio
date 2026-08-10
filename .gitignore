@@ -13,6 +13,11 @@ yarn-error.log*
 pnpm-debug.log*
 
 
+# test + quality-gate artifacts
+test-results/
+playwright-report/
+.lighthouseci/
+
 # environment variables
 .env
 .env.production
