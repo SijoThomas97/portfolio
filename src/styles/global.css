@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/space-grotesk";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -14,11 +15,11 @@
   --color-text-primary: #E2E8F0;
   --color-text-primary-light: #0F172A;
   --color-text-secondary: #94A3B8;
-  --color-text-secondary-light: #64748B;
+  --color-text-secondary-light: #475569;
   --color-accent: #22D3EE;
   --color-accent-hover: #67E8F9;
-  --color-accent-light: #0891B2;
-  --color-accent-light-hover: #06B6D4;
+  --color-accent-light: #155E75;
+  --color-accent-light-hover: #0E7490;
   --color-link: #38BDF8;
   --color-link-light: #0284C7;
   --color-success: #4ADE80;
@@ -27,6 +28,7 @@
 
   --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Space Grotesk Variable", "Space Grotesk", var(--font-sans);
 
   --text-body: 1.0625rem;
   --text-body--line-height: 1.6;
@@ -36,6 +38,10 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
 }
 
 @media (prefers-reduced-motion: no-preference) {

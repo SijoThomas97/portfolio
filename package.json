@@ -4,20 +4,42 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "predev": "node scripts/sync-api-route.mjs",
     "dev": "astro dev",
+    "prebuild": "node scripts/sync-api-route.mjs",
     "build": "astro build",
+    "prebuild:server": "ADAPTER=node node scripts/sync-api-route.mjs",
+    "build:server": "ADAPTER=node astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "lhci": "lhci autorun"
   },
   "dependencies": {
+    "@astrojs/node": "^9.5.5",
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.2",
+    "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/sora": "^5.3.0",
+    "@fontsource-variable/space-grotesk": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
     "@lucide/astro": "^1.14.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.2.4",
     "astro": "^5.0.0",
+    "nodemailer": "^9.0.3",
     "tailwindcss": "^4.2.4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.62.1",
+    "@types/nodemailer": "^8.0.1",
+    "gray-matter": "^4.0.3",
+    "vitest": "^4.1.10"
   }
 }
